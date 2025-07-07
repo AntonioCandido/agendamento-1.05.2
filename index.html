@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AGENDAMENTO Estácio</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              'estacio-blue': '#003366',
+              'estacio-red': '#CC0000',
+            },
+            keyframes: {
+              'fade-in': {
+                  '0%': { opacity: '0' },
+                  '100%': { opacity: '1' },
+              }
+            },
+            animation: {
+                'fade-in': 'fade-in 0.3s ease-in-out',
+            }
+          }
+        }
+      }
+    </script>
+
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body class="bg-gray-100">
+    <div id="root"></div>
+    <script type="module" src="/src/index.tsx"></script>
+    <script type="module" src="/src/index.tsx"></script>
+</body>
+</html>
