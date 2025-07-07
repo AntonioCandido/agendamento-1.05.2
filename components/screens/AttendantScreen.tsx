@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { obterDisponibilidades, adicionarDisponibilidade, excluirDisponibilidade, obterAgendamentosParaAtendente, disponibilidadeEstaAgendada, obterHistoricoParaAtendente, atualizarStatusAgendamento } from '../../services/supabase';
 import type { AppContextType, Disponibilidade, Atendente, DetalhesAgendamento, ItemHistorico, StatusAgendamento } from '../../types';
@@ -47,7 +45,8 @@ const AttendantScreen: React.FC<Omit<AppContextType, 'pagina'>> = ({ setPagina, 
         setDisponibilidades(data);
       } else if (aba === 'agendados') {
         const data = await obterAgendamentosParaAtendente(atendente.id);
-        setAgendamentos(data);
+        const agendamentosOrdenados = data.sort((a, b) => new Date(a.horario_inicio).getTime() - new Date(b.horario_inicio).getTime());
+        setAgendamentos(agendamentosOrdenados);
       } else if (aba === 'historico') {
         const data = await obterHistoricoParaAtendente(atendente.id);
         setHistorico(data);
