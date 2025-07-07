@@ -8,4 +8,4 @@ export enum Pagina {
 }
 
 export const USUARIO_ADMIN = 'Administrador';
-export const SENHA_ADMIN = 'estacio2025';
+export const SENHA_ADMIN = 'XXXXXXXX';
