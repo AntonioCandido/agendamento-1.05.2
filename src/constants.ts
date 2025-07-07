@@ -1,4 +1,4 @@
-cio2025export enum Pagina {
+export enum Pagina {
   Inicio,
   Login,
   Admin,
