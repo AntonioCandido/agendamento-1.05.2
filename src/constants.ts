@@ -1,4 +1,4 @@
-export enum Pagina {
+cio2025export enum Pagina {
   Inicio,
   Login,
   Admin,
@@ -8,4 +8,4 @@ export enum Pagina {
 }
 
 export const USUARIO_ADMIN = 'Administrador';
-export const SENHA_ADMIN = 'XXXXXXXX';
+export const SENHA_ADMIN = 'estacio2025';
