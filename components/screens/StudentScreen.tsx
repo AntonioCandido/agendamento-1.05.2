@@ -1,7 +1,4 @@
 
-
-
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { obterHorariosDisponiveis, agendarHorario } from '../../services/supabase';
 import type { AppContextType, DisponibilidadeComAtendente } from '../../types';
@@ -12,14 +9,14 @@ import IconInput from '../common/IconInput';
 import EmptyState from '../common/EmptyState';
 
 // Componente para o seletor de tipo de chamada
-const opcoesTipoChamada = ['Primeira chamada', 'Segunda chamada', 'Lista de espera'];
+const opcoesTipoChamada = ['1ª Chamada', '2ª Chamada', 'Lista de espera'];
 
 interface SeletorTipoChamadaProps {
   valor: string;
   aoMudar: (valor: string) => void;
 }
 
-const SeletorTipoChamada: React.FC<SeletorTipoChamadaProps> = ({ valor, aoMudar }) => {
+function SeletorTipoChamada({ valor, aoMudar }: SeletorTipoChamadaProps) {
   return (
     <fieldset>
       <legend className="block text-sm font-bold text-gray-700 mb-2 text-center">Tipo de Chamada</legend>
@@ -53,7 +50,7 @@ const SeletorTipoChamada: React.FC<SeletorTipoChamadaProps> = ({ valor, aoMudar 
       </div>
     </fieldset>
   );
-};
+}
 
 // Componente para o seletor de tipo de atendimento
 const opcoesTipoAtendimento = ['1º Atendimento', '2º Atendimento'];
@@ -63,7 +60,7 @@ interface SeletorTipoAtendimentoProps {
   aoMudar: (valor: string) => void;
 }
 
-const SeletorTipoAtendimento: React.FC<SeletorTipoAtendimentoProps> = ({ valor, aoMudar }) => {
+function SeletorTipoAtendimento({ valor, aoMudar }: SeletorTipoAtendimentoProps) {
   return (
     <fieldset>
       <legend className="block text-sm font-bold text-gray-700 mb-2 text-center">Tipo de Atendimento</legend>
@@ -97,7 +94,7 @@ const SeletorTipoAtendimento: React.FC<SeletorTipoAtendimentoProps> = ({ valor, 
       </div>
     </fieldset>
   );
-};
+}
 
 // Componente para o seletor de motivo
 const opcoesMotivo = ['Entrega de doc', 'Tirar dúvidas', 'Assinatura de doc', 'Outros'];
@@ -107,7 +104,7 @@ interface SeletorMotivoProps {
   aoMudar: (valor: string) => void;
 }
 
-const SeletorMotivo: React.FC<SeletorMotivoProps> = ({ valor, aoMudar }) => {
+function SeletorMotivo({ valor, aoMudar }: SeletorMotivoProps) {
   return (
     <fieldset>
       <legend className="block text-sm font-bold text-gray-700 mb-2 text-center">Motivo</legend>
@@ -141,7 +138,7 @@ const SeletorMotivo: React.FC<SeletorMotivoProps> = ({ valor, aoMudar }) => {
       </div>
     </fieldset>
   );
-};
+}
 
 
 const StudentScreen: React.FC<Omit<AppContextType, 'pagina' | 'usuario' | 'setUsuario'>> = ({ setPagina }) => {
@@ -152,20 +149,37 @@ const StudentScreen: React.FC<Omit<AppContextType, 'pagina' | 'usuario' | 'setUs
   const [modalAberto, setModalAberto] = useState(false);
   const [estadoAgendamento, setEstadoAgendamento] = useState({ 
     nome_candidato: '', 
-    telefone_candidato: '', 
-    tipo_chamada: 'Primeira chamada', 
+    telefone_candidato: '',
+    email_candidato: '',
+    tipo_chamada: '1ª Chamada', 
     motivo: 'Entrega de doc',
     tipo_atendimento: '1º Atendimento',
   });
   const [outroMotivo, setOutroMotivo] = useState('');
   const [agendando, setAgendando] = useState(false);
   const [agendamentoSucesso, setAgendamentoSucesso] = useState(false);
+  const [receberNotificacoes, setReceberNotificacoes] = useState(true);
+  const [consentimentoLgpd, setConsentimentoLgpd] = useState(false);
+  const [dataAberta, setDataAberta] = useState<string | null>(null);
 
   const buscarHorarios = useCallback(async () => {
     setCarregando(true);
+    setErro('');
     try {
       const data = await obterHorariosDisponiveis();
       setHorarios(data);
+      if (data.length > 0) {
+        const tempAgrupados = data.reduce((acc, horario) => {
+          const chaveData = horario.horario_inicio.split('T')[0];
+          if (!acc[chaveData]) acc[chaveData] = [];
+          acc[chaveData].push(horario);
+          return acc;
+        }, {} as Record<string, DisponibilidadeComAtendente[]>);
+        const chavesOrdenadas = Object.keys(tempAgrupados).sort();
+        setDataAberta(chavesOrdenadas[0]);
+      } else {
+        setDataAberta(null);
+      }
     } catch (err) {
       setErro('Falha ao carregar horários disponíveis.');
     } finally {
@@ -176,6 +190,10 @@ const StudentScreen: React.FC<Omit<AppContextType, 'pagina' | 'usuario' | 'setUs
   useEffect(() => {
     buscarHorarios();
   }, [buscarHorarios]);
+
+  const toggleData = (chaveData: string) => {
+    setDataAberta(prevData => (prevData === chaveData ? null : chaveData));
+  };
 
   const selecionarHorario = (horario: DisponibilidadeComAtendente) => {
     setHorarioSelecionado(horario);
@@ -195,12 +213,17 @@ const StudentScreen: React.FC<Omit<AppContextType, 'pagina' | 'usuario' | 'setUs
   
   const efetuarAgendamento = async (e: React.FormEvent) => {
     e.preventDefault();
-    const { nome_candidato, telefone_candidato, tipo_chamada, motivo, tipo_atendimento } = estadoAgendamento;
+    const { nome_candidato, telefone_candidato, email_candidato, tipo_chamada, motivo, tipo_atendimento } = estadoAgendamento;
     
     const motivoFinal = motivo === 'Outros' ? outroMotivo : motivo;
 
-    if (!horarioSelecionado || !nome_candidato || !telefone_candidato || !tipo_chamada || !tipo_atendimento || !motivoFinal) {
+    if (!horarioSelecionado || !nome_candidato || !telefone_candidato || !email_candidato || !tipo_chamada || !tipo_atendimento || !motivoFinal) {
       setErro('Todos os campos são obrigatórios.');
+      return;
+    }
+    
+    if (!consentimentoLgpd) {
+      setErro('É necessário consentir com o tratamento de dados para continuar.');
       return;
     }
 
@@ -212,6 +235,9 @@ const StudentScreen: React.FC<Omit<AppContextType, 'pagina' | 'usuario' | 'setUs
         disponibilidade_id: horarioSelecionado.id,
         nome_candidato,
         telefone_candidato,
+        email_candidato,
+        receber_notificacoes: receberNotificacoes,
+        consentimento_lgpd: consentimentoLgpd,
         tipo_chamada,
         motivo: motivoFinal,
         tipo_atendimento,
@@ -230,8 +256,10 @@ const StudentScreen: React.FC<Omit<AppContextType, 'pagina' | 'usuario' | 'setUs
   const fecharModal = () => {
     setModalAberto(false);
     setHorarioSelecionado(null);
-    setEstadoAgendamento({ nome_candidato: '', telefone_candidato: '', tipo_chamada: 'Primeira chamada', motivo: 'Entrega de doc', tipo_atendimento: '1º Atendimento' });
+    setEstadoAgendamento({ nome_candidato: '', telefone_candidato: '', email_candidato: '', tipo_chamada: '1ª Chamada', motivo: 'Entrega de doc', tipo_atendimento: '1º Atendimento' });
     setOutroMotivo('');
+    setReceberNotificacoes(true);
+    setConsentimentoLgpd(false);
   };
 
   // Agrupa os horários por data
@@ -269,39 +297,66 @@ const StudentScreen: React.FC<Omit<AppContextType, 'pagina' | 'usuario' | 'setUs
         {carregando ? (
           <div className="py-8"><Spinner /></div>
         ) : horarios.length > 0 ? (
-          <div className="space-y-8">
+          <div className="space-y-4">
             {chavesDataOrdenadas.map(chaveData => {
               const horariosNaData = horariosAgrupados[chaveData];
-              const dataExibicao = new Date(chaveData + 'T00:00:00').toLocaleDateString('pt-BR', {
-                  weekday: 'long', day: '2-digit', month: 'long' 
-              });
-              const dataExibicaoCapitalizada = dataExibicao.charAt(0).toUpperCase() + dataExibicao.slice(1);
+              const dataObj = new Date(`${chaveData}T00:00:00`);
+              const diaSemana = dataObj.toLocaleDateString('pt-BR', { weekday: 'long' });
+              const dia = dataObj.toLocaleDateString('pt-BR', { day: '2-digit' });
+              const mes = dataObj.toLocaleDateString('pt-BR', { month: 'short' });
+              
+              const estaAberto = dataAberta === chaveData;
 
               return (
-                <div key={chaveData}>
-                  <h2 className="text-xl font-bold text-gray-700 border-b-2 border-gray-100 pb-3 mb-4">
-                    {dataExibicaoCapitalizada}
-                  </h2>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-                    {horariosNaData.map(horario => {
-                        const hora = new Date(horario.horario_inicio).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-                        return (
-                            <button
-                                key={horario.id}
-                                onClick={() => selecionarHorario(horario)}
-                                className="group bg-white rounded-xl p-4 flex flex-col items-center justify-center text-center transition-all duration-300 transform hover:-translate-y-1 hover:shadow-lg cursor-pointer border border-gray-200 hover:border-estacio-blue/50"
-                                aria-label={`Agendar para ${hora}`}
-                            >
-                                <div className="w-16 h-16 flex items-center justify-center bg-blue-50 rounded-full mb-3 transition-colors duration-300 group-hover:bg-blue-100">
-                                    <i className="bi bi-clock-history text-3xl text-estacio-blue"></i>
-                                </div>
-                                <p className="font-bold text-xl text-gray-800">{hora}</p>
-                                <p className="text-xs text-gray-500 mt-1">{horario.atendentes?.nome_tag || 'Atendimento'}</p>
-                            </button>
-                        );
-                    })}
+                  <div key={chaveData} className="bg-white rounded-xl shadow-lg overflow-hidden transition-all duration-300 border border-gray-200/80">
+                      {/* Cabeçalho clicável do card */}
+                      <div
+                          onClick={() => toggleData(chaveData)}
+                          className="flex justify-between items-center p-4 cursor-pointer hover:bg-gray-50/70"
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') toggleData(chaveData)}}
+                          aria-expanded={estaAberto}
+                          aria-controls={`horarios-${chaveData}`}
+                      >
+                          <div className="flex items-center gap-4">
+                              {/* Ícone de calendário estilizado */}
+                              <div className="flex-shrink-0 flex flex-col items-center justify-center w-16 h-16 rounded-lg bg-estacio-blue text-white shadow">
+                                  <span className="text-2xl font-bold -mb-1">{dia}</span>
+                                  <span className="text-xs uppercase font-semibold">{mes.replace('.', '')}</span>
+                              </div>
+                              <div>
+                                  <h3 className="text-lg font-bold text-gray-800 capitalize">{diaSemana}</h3>
+                                  <p className="text-sm text-gray-500">{horariosNaData.length} horários disponíveis</p>
+                              </div>
+                          </div>
+                          <i className={`bi bi-chevron-down text-2xl text-gray-400 transition-transform duration-300 ${estaAberto ? 'transform rotate-180' : ''}`}></i>
+                      </div>
+
+                      {/* Conteúdo do acordeão */}
+                      <div
+                          id={`horarios-${chaveData}`}
+                          className={`transition-all duration-500 ease-in-out bg-gray-50/50 overflow-hidden ${estaAberto ? 'max-h-[1000px] opacity-100' : 'max-h-0 opacity-0'}`}
+                      >
+                          <div className="p-4 border-t border-gray-200">
+                              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
+                                  {horariosNaData.map(horario => {
+                                      const hora = new Date(horario.horario_inicio).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                                      return (
+                                          <button
+                                              key={horario.id}
+                                              onClick={() => selecionarHorario(horario)}
+                                              className="bg-white rounded-md py-3 px-2 text-center transition-all duration-200 transform hover:scale-105 hover:shadow-md cursor-pointer border-2 border-gray-200 hover:border-estacio-blue focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-estacio-blue"
+                                              aria-label={`Agendar para ${hora}`}
+                                          >
+                                              <p className="font-bold text-lg text-estacio-blue">{hora}</p>
+                                          </button>
+                                      );
+                                  })}
+                              </div>
+                          </div>
+                      </div>
                   </div>
-                </div>
               );
             })}
           </div>
@@ -363,7 +418,35 @@ const StudentScreen: React.FC<Omit<AppContextType, 'pagina' | 'usuario' | 'setUs
             <IconInput name="nome_candidato" value={estadoAgendamento.nome_candidato} onChange={aoMudarInput} placeholder="Seu Nome Completo" required icone="bi-person" />
             <IconInput name="telefone_candidato" type="tel" value={estadoAgendamento.telefone_candidato} onChange={aoMudarInput} placeholder="Telefone de Contato" required icone="bi-telephone" />
             
-            <button type="submit" disabled={agendando} className="w-full flex items-center justify-center gap-2 bg-estacio-red text-white font-bold py-3 rounded-lg hover:bg-opacity-90 disabled:opacity-50">
+            <div className="space-y-2">
+                <IconInput name="email_candidato" type="email" value={estadoAgendamento.email_candidato} onChange={aoMudarInput} placeholder="Seu E-mail" required icone="bi-envelope" />
+                <div className="flex items-center gap-2 ml-1">
+                  <input
+                    id="receber_notificacoes"
+                    type="checkbox"
+                    checked={receberNotificacoes}
+                    onChange={(e) => setReceberNotificacoes(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300 text-estacio-blue focus:ring-estacio-blue"
+                  />
+                  <label htmlFor="receber_notificacoes" className="text-sm text-gray-700 select-none">Autorizo em receber notificações e lembretes.</label>
+                </div>
+            </div>
+
+            <div className="flex items-start gap-3 pt-2">
+              <input
+                id="consentimento_lgpd"
+                type="checkbox"
+                checked={consentimentoLgpd}
+                onChange={(e) => setConsentimentoLgpd(e.target.checked)}
+                className="h-5 w-5 rounded border-gray-400 text-estacio-blue focus:ring-estacio-blue mt-1 flex-shrink-0"
+                required
+              />
+              <label htmlFor="consentimento_lgpd" className="text-sm text-gray-700 leading-snug">
+                Concedo consentimento explícito para o tratamento de meus dados, conforme a LGPD (Lei nº 13.709/2018). Consulte nossa <a href="https://www.serpro.gov.br/lgpd/cidadao/seu-consentimento-e-lei" target="_blank" rel="noopener noreferrer" className="text-estacio-blue hover:underline font-semibold">Política de Privacidade</a> para mais detalhes.
+              </label>
+            </div>
+            
+            <button type="submit" disabled={agendando || !consentimentoLgpd} className="w-full flex items-center justify-center gap-2 bg-estacio-red text-white font-bold py-3 rounded-lg hover:bg-opacity-90 disabled:opacity-50 disabled:cursor-not-allowed">
               {agendando ? <Spinner/> : (
                 <>
                   <i className="bi bi-check-circle text-lg"></i>

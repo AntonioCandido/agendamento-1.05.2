@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import Modal from './Modal';
 import { ItemHistorico } from '../../types';
@@ -102,6 +103,7 @@ const HistoryDetailModal: React.FC<HistoryDetailModalProps> = ({ estaAberto, aoF
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-4 gap-x-6">
                         <DetalheItem label="Nome do Candidato" value={item.nome_candidato} />
                         <DetalheItem label="Telefone" value={item.telefone_candidato} />
+                        <DetalheItem label="E-mail" value={item.email_candidato} />
                         <DetalheItem label="Tipo de Chamada" value={item.tipo_chamada} />
                         <DetalheItem label="Tipo de Atendimento" value={item.tipo_atendimento} />
                         <DetalheItem label="Motivo" value={item.motivo} className="sm:col-span-2" />

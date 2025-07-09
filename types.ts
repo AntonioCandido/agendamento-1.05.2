@@ -35,6 +35,9 @@ export interface Agendamento {
   disponibilidade_id: string;
   nome_candidato: string;
   telefone_candidato: string;
+  email_candidato: string;
+  receber_notificacoes: boolean;
+  consentimento_lgpd: boolean;
   motivo: string;
   tipo_chamada: string;
   tipo_atendimento: string;
@@ -46,6 +49,9 @@ export interface Agendamento {
 export interface DetalhesAgendamento extends Agendamento {
   horario_inicio: string;
   horario_fim: string;
+  atendente?: {
+    nome_real: string;
+  } | null;
 }
 
 export type Usuario = Atendente | { id: 'admin'; nome_real: 'Administrador' };
@@ -65,6 +71,9 @@ export interface ItemHistorico {
   // campos opcionais de agendamento
   nome_candidato?: string;
   telefone_candidato?: string;
+  email_candidato?: string;
+  receber_notificacoes?: boolean;
+  consentimento_lgpd?: boolean;
   motivo?: string;
   tipo_chamada?: string;
   tipo_atendimento?: string;

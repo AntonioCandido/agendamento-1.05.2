@@ -19,6 +19,9 @@ export type Database = {
           telefone_candidato: string
           tipo_atendimento: string
           tipo_chamada: string
+          email_candidato: string
+          receber_notificacoes: boolean
+          consentimento_lgpd: boolean
         }
         Insert: {
           comentarios?: string | null
@@ -32,6 +35,9 @@ export type Database = {
           telefone_candidato: string
           tipo_atendimento: string
           tipo_chamada: string
+          email_candidato: string
+          receber_notificacoes?: boolean
+          consentimento_lgpd: boolean
         }
         Update: {
           comentarios?: string | null
@@ -45,6 +51,9 @@ export type Database = {
           telefone_candidato?: string
           tipo_atendimento?: string
           tipo_chamada?: string
+          email_candidato?: string
+          receber_notificacoes?: boolean
+          consentimento_lgpd?: boolean
         }
         Relationships: [
           {
@@ -245,6 +254,22 @@ export async function obterDisponibilidades(atendenteId: string): Promise<Dispon
     return data || [];
 }
 
+export async function adicionarDisponibilidadesEmLote(novasDisponibilidades: Database['public']['Tables']['disponibilidades']['Insert'][]): Promise<Disponibilidade[]> {
+  if (novasDisponibilidades.length === 0) return [];
+
+  const { data, error } = await supabase
+    .from('disponibilidades')
+    .insert(novasDisponibilidades)
+    .select();
+    
+  if (error) {
+    console.error('Erro ao adicionar disponibilidades em lote:', error.message);
+    throw error;
+  }
+  if (!data) throw new Error("Não foi possível criar as disponibilidades.");
+  return data;
+}
+
 export async function adicionarDisponibilidade(dados: Database['public']['Tables']['disponibilidades']['Insert']): Promise<Disponibilidade> {
     const { data, error } = await supabase.from('disponibilidades').insert(dados).select().single();
     if (error) {
@@ -364,6 +389,43 @@ export async function obterAgendamentosParaAtendente(atendenteId: string): Promi
         ...detalhesAgendamento,
         horario_inicio: disponibilidades.horario_inicio,
         horario_fim: disponibilidades.horario_fim,
+      };
+    })
+    .filter((item): item is DetalhesAgendamento => item !== null);
+
+  return dadosFormatados || [];
+}
+
+export async function obterTodosAgendamentosPendentes(): Promise<DetalhesAgendamento[]> {
+  const { data, error } = await supabase
+    .from('agendamentos')
+    .select(`
+        *,
+        disponibilidades!inner(
+            horario_inicio,
+            horario_fim,
+            atendentes (
+                nome_real
+            )
+        )
+    `)
+    .eq('status', 'Pendente') // Apenas agendamentos pendentes
+    .order('horario_inicio', { referencedTable: 'disponibilidades', ascending: true });
+
+  if (error) {
+    console.error('Erro ao buscar todos os agendamentos pendentes:', error.message);
+    throw error;
+  }
+  
+  const dadosFormatados = data
+    ?.map(agendamento => {
+      const { disponibilidades, ...detalhesAgendamento } = agendamento as any;
+      if (!disponibilidades) return null;
+      return {
+        ...detalhesAgendamento,
+        horario_inicio: disponibilidades.horario_inicio,
+        horario_fim: disponibilidades.horario_fim,
+        atendente: disponibilidades.atendentes,
       };
     })
     .filter((item): item is DetalhesAgendamento => item !== null);

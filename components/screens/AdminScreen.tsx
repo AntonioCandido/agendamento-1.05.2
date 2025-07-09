@@ -12,10 +12,11 @@ import EmptyState from '../common/EmptyState';
 const AdminScreen: React.FC<Omit<AppContextType, 'pagina'>> = ({ setPagina, setUsuario }) => {
   // Estado para Gerenciamento de Atendentes
   const [atendentes, setAtendentes] = useState<Atendente[]>([]);
-  const [buscando, setBuscando] = useState(true);
+  const [buscando, setBuscando] = useState(false);
   const [adicionando, setAdicionando] = useState(false);
   const [excluindo, setExcluindo] = useState(false);
-  const [erro, setErro] = useState('');
+  const [erroFormulario, setErroFormulario] = useState('');
+  const [erroLista, setErroLista] = useState('');
   const [estadoFormulario, setEstadoFormulario] = useState({
     usuario: '',
     senha: '',
@@ -24,6 +25,8 @@ const AdminScreen: React.FC<Omit<AppContextType, 'pagina'>> = ({ setPagina, setU
     nome_tag: '',
   });
   const [atendenteParaExcluir, setAtendenteParaExcluir] = useState<Atendente | null>(null);
+  const [isAdicionarAtendenteOpen, setIsAdicionarAtendenteOpen] = useState(false);
+  const [isAtendentesListOpen, setIsAtendentesListOpen] = useState(false);
 
   // Estado para Abas
   const [aba, setAba] = useState<'gerenciar' | 'historico' | 'disponiveis'>('gerenciar');
@@ -48,13 +51,13 @@ const AdminScreen: React.FC<Omit<AppContextType, 'pagina'>> = ({ setPagina, setU
   };
 
   const buscarAtendentes = useCallback(async () => {
-    setErro('');
+    setErroLista('');
+    setBuscando(true);
     try {
-      setBuscando(true);
       const data = await obterTodosAtendentes();
       setAtendentes(data);
     } catch (err) {
-      setErro('Falha ao carregar atendentes.');
+      setErroLista('Falha ao carregar atendentes.');
     } finally {
       setBuscando(false);
     }
@@ -62,8 +65,8 @@ const AdminScreen: React.FC<Omit<AppContextType, 'pagina'>> = ({ setPagina, setU
 
   const buscarHistoricoGeral = useCallback(async () => {
     setErroHistorico('');
+    setCarregandoHistorico(true);
     try {
-      setCarregandoHistorico(true);
       const data = await obterHistoricoGeral();
       setHistoricoGeral(data);
     } catch (err) {
@@ -75,8 +78,8 @@ const AdminScreen: React.FC<Omit<AppContextType, 'pagina'>> = ({ setPagina, setU
   
   const buscarHorariosDisponiveis = useCallback(async () => {
     setErroDisponiveis('');
+    setCarregandoDisponiveis(true);
     try {
-      setCarregandoDisponiveis(true);
       const data = await obterHorariosDisponiveis();
       setHorariosDisponiveis(data);
     } catch (err) {
@@ -87,14 +90,20 @@ const AdminScreen: React.FC<Omit<AppContextType, 'pagina'>> = ({ setPagina, setU
   }, []);
 
   useEffect(() => {
-    if (aba === 'gerenciar') {
-      buscarAtendentes();
-    } else if (aba === 'historico') {
+    if (aba === 'historico') {
       buscarHistoricoGeral();
     } else if (aba === 'disponiveis') {
       buscarHorariosDisponiveis();
     }
-  }, [aba, buscarAtendentes, buscarHistoricoGeral, buscarHorariosDisponiveis]);
+  }, [aba, buscarHistoricoGeral, buscarHorariosDisponiveis]);
+  
+  const handleToggleAtendentesList = () => {
+      const willBeOpen = !isAtendentesListOpen;
+      setIsAtendentesListOpen(willBeOpen);
+      if (willBeOpen && atendentes.length === 0 && !buscando) {
+          buscarAtendentes();
+      }
+  };
 
   const aoMudarInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -104,17 +113,21 @@ const AdminScreen: React.FC<Omit<AppContextType, 'pagina'>> = ({ setPagina, setU
   const adicionarNovoAtendente = async (e: React.FormEvent) => {
     e.preventDefault();
     if (Object.values(estadoFormulario).some(v => v === '')) {
-      setErro('Todos os campos são obrigatórios.');
+      setErroFormulario('Todos os campos são obrigatórios.');
       return;
     }
-    setErro('');
+    setErroFormulario('');
     setAdicionando(true);
     try {
       await adicionarAtendente(estadoFormulario);
       setEstadoFormulario({ usuario: '', senha: '', nome_real: '', matricula: '', nome_tag: '' });
       await buscarAtendentes();
+      setIsAdicionarAtendenteOpen(false); // Recolhe o formulário após o sucesso
+      if (!isAtendentesListOpen) {
+          setIsAtendentesListOpen(true);
+      }
     } catch (err) {
-      setErro('Falha ao adicionar atendente. Verifique se o usuário já existe.');
+      setErroFormulario('Falha ao adicionar atendente. Verifique se o usuário já existe.');
     } finally {
       setAdicionando(false);
     }
@@ -123,13 +136,13 @@ const AdminScreen: React.FC<Omit<AppContextType, 'pagina'>> = ({ setPagina, setU
   const confirmarExclusaoAtendente = async () => {
     if (!atendenteParaExcluir) return;
 
-    setErro('');
+    setErroLista('');
     setExcluindo(true);
     try {
       const temVinculos = await atendenteTemDisponibilidades(atendenteParaExcluir.id);
       
       if (temVinculos) {
-        setErro(`Não é possível excluir "${atendenteParaExcluir.nome_real}". O atendente possui horários de disponibilidade cadastrados. Remova os horários dele primeiro.`);
+        setErroLista(`Não é possível excluir "${atendenteParaExcluir.nome_real}". O atendente possui horários de disponibilidade cadastrados. Remova os horários dele primeiro.`);
         setAtendenteParaExcluir(null);
         return;
       }
@@ -138,7 +151,7 @@ const AdminScreen: React.FC<Omit<AppContextType, 'pagina'>> = ({ setPagina, setU
       setAtendenteParaExcluir(null);
       await buscarAtendentes();
     } catch (err) {
-      setErro('Falha ao excluir atendente. Ocorreu um erro inesperado.');
+      setErroLista('Falha ao excluir atendente. Ocorreu um erro inesperado.');
       console.error(err);
     } finally {
       setExcluindo(false);
@@ -292,49 +305,96 @@ const AdminScreen: React.FC<Omit<AppContextType, 'pagina'>> = ({ setPagina, setU
 
       {aba === 'gerenciar' && (
         <div className="space-y-8">
-        <div className="bg-white p-4 sm:p-6 rounded-xl shadow-xl">
-          <h2 className="text-2xl font-semibold mb-6 text-gray-700">Adicionar Novo Atendente</h2>
-          <form onSubmit={adicionarNovoAtendente} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <IconInput name="usuario" value={estadoFormulario.usuario} onChange={aoMudarInput} placeholder="Nome de usuário" required icone="bi-person" />
-                  <IconInput name="senha" type="password" value={estadoFormulario.senha} onChange={aoMudarInput} placeholder="Senha" required icone="bi-lock" />
-                  <IconInput name="nome_real" value={estadoFormulario.nome_real} onChange={aoMudarInput} placeholder="Nome Real" required icone="bi-person-badge" />
-                  <IconInput name="matricula" value={estadoFormulario.matricula} onChange={aoMudarInput} placeholder="Matrícula" required icone="bi-card-list" />
+        <div className="bg-white p-4 sm:p-6 rounded-xl shadow-xl border border-gray-200">
+          <div 
+            onClick={() => setIsAdicionarAtendenteOpen(!isAdicionarAtendenteOpen)}
+            className="flex justify-between items-center cursor-pointer"
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setIsAdicionarAtendenteOpen(!isAdicionarAtendenteOpen)}}
+            aria-expanded={isAdicionarAtendenteOpen}
+            aria-controls="adicionar-atendente-form"
+          >
+            <div className="flex items-center gap-4">
+              <i className="bi bi-person-plus-fill text-4xl text-estacio-blue flex-shrink-0"></i>
+              <div>
+                <h2 className="text-xl sm:text-2xl font-semibold text-gray-800">Adicionar Novo Atendente</h2>
+                <p className="text-sm text-gray-600 mt-1">Clique para expandir e cadastrar um novo usuário.</p>
               </div>
-              <IconInput name="nome_tag" value={estadoFormulario.nome_tag} onChange={aoMudarInput} placeholder="Nome Tag (Ex: 'Atendimento TI')" required icone="bi-tag" />
-              <button type="submit" disabled={adicionando} className="w-full flex items-center justify-center gap-2 mt-4 bg-estacio-blue text-white font-bold py-3 px-6 rounded-lg hover:bg-opacity-90 transition-all duration-300 transform hover:scale-105 disabled:opacity-50">
-                {adicionando ? <Spinner /> : (
-                  <>
-                    <i className="bi bi-plus-lg text-lg"></i>
-                    <span>Adicionar Atendente</span>
-                  </>
-                )}
-              </button>
-          </form>
+            </div>
+            <i className={`bi bi-chevron-down text-2xl text-gray-500 transition-transform duration-300 ${isAdicionarAtendenteOpen ? 'transform rotate-180' : ''}`}></i>
+          </div>
+
+          <div
+            id="adicionar-atendente-form"
+            className={`transition-all duration-500 ease-in-out overflow-hidden ${isAdicionarAtendenteOpen ? 'max-h-[1000px] opacity-100 mt-6 pt-6 border-t' : 'max-h-0 opacity-0'}`}
+          >
+            {erroFormulario && <p className="text-red-500 mb-4 p-3 bg-red-50 rounded-lg text-center font-semibold">{erroFormulario}</p>}
+            <form onSubmit={adicionarNovoAtendente} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <IconInput name="usuario" value={estadoFormulario.usuario} onChange={aoMudarInput} placeholder="Nome de usuário" required icone="bi-person" />
+                    <IconInput name="senha" type="password" value={estadoFormulario.senha} onChange={aoMudarInput} placeholder="Senha" required icone="bi-lock" />
+                    <IconInput name="nome_real" value={estadoFormulario.nome_real} onChange={aoMudarInput} placeholder="Nome Real" required icone="bi-person-badge" />
+                    <IconInput name="matricula" value={estadoFormulario.matricula} onChange={aoMudarInput} placeholder="Matrícula" required icone="bi-card-list" />
+                </div>
+                <IconInput name="nome_tag" value={estadoFormulario.nome_tag} onChange={aoMudarInput} placeholder="Nome Tag (Ex: 'Atendimento TI')" required icone="bi-tag" />
+                <button type="submit" disabled={adicionando} className="w-full flex items-center justify-center gap-2 mt-4 bg-estacio-blue text-white font-bold py-3 px-6 rounded-lg hover:bg-opacity-90 transition-all duration-300 transform hover:scale-105 disabled:opacity-50">
+                  {adicionando ? <Spinner /> : (
+                    <>
+                      <i className="bi bi-plus-lg text-lg"></i>
+                      <span>Adicionar Atendente</span>
+                    </>
+                  )}
+                </button>
+            </form>
+          </div>
         </div>
 
-        <div className="bg-white p-4 sm:p-6 rounded-xl shadow-xl">
-          <h2 className="text-2xl font-semibold mb-4 text-gray-700">Atendentes Cadastrados</h2>
-           {erro && <p className="text-red-500 mb-4 p-3 bg-red-50 rounded-lg text-center font-semibold">{erro}</p>}
-          {buscando ? <div className="py-8"><Spinner /></div> : atendentes.length > 0 ? (
-            <div className="space-y-4">
-              {atendentes.map(atendente => (
-                <div key={atendente.id} className="bg-gray-50 p-4 rounded-lg flex flex-col md:flex-row justify-between items-start md:items-center gap-4 transition-shadow hover:shadow-md">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-2 flex-grow text-sm w-full">
-                    <div><span className="font-bold text-gray-500 block">Nome Real</span>{atendente.nome_real}</div>
-                    <div><span className="font-bold text-gray-500 block">Usuário</span>{atendente.usuario}</div>
-                    <div><span className="font-bold text-gray-500 block">Matrícula</span>{atendente.matricula}</div>
-                    <div><span className="font-bold text-gray-500 block">Tag</span>{atendente.nome_tag}</div>
+        <div className="bg-white p-4 sm:p-6 rounded-xl shadow-xl border border-gray-200">
+          <div 
+            onClick={handleToggleAtendentesList}
+            className="flex justify-between items-center cursor-pointer"
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleToggleAtendentesList()}}
+            aria-expanded={isAtendentesListOpen}
+            aria-controls="atendentes-list-content"
+          >
+              <div className="flex items-center gap-4">
+                  <i className="bi bi-people-fill text-4xl text-estacio-blue flex-shrink-0"></i>
+                  <div>
+                      <h2 className="text-xl sm:text-2xl font-semibold text-gray-800">Atendentes Cadastrados</h2>
+                      <p className="text-sm text-gray-600 mt-1">Clique para expandir e ver a lista de usuários.</p>
                   </div>
-                  <div className="w-full md:w-auto flex justify-end">
-                    <button onClick={() => setAtendenteParaExcluir(atendente)} className="bg-red-100 text-red-600 hover:bg-red-200 h-10 w-10 flex items-center justify-center rounded-full transition-colors" aria-label={`Excluir ${atendente.nome_real}`}>
-                      <i className="bi bi-trash"></i>
-                    </button>
+              </div>
+              <i className={`bi bi-chevron-down text-2xl text-gray-500 transition-transform duration-300 ${isAtendentesListOpen ? 'transform rotate-180' : ''}`}></i>
+          </div>
+
+          <div
+            id="atendentes-list-content"
+            className={`transition-all duration-500 ease-in-out overflow-hidden ${isAtendentesListOpen ? 'max-h-[3000px] opacity-100 mt-6 pt-6 border-t' : 'max-h-0 opacity-0'}`}
+          >
+            {erroLista && <p className="text-red-500 mb-4 p-3 bg-red-50 rounded-lg text-center font-semibold">{erroLista}</p>}
+            {buscando ? <div className="py-8"><Spinner /></div> : atendentes.length > 0 ? (
+              <div className="space-y-4">
+                {atendentes.map(atendente => (
+                  <div key={atendente.id} className="bg-gray-50 p-4 rounded-lg flex flex-col md:flex-row justify-between items-start md:items-center gap-4 transition-shadow hover:shadow-md">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-2 flex-grow text-sm w-full">
+                      <div><span className="font-bold text-gray-500 block">Nome Real</span>{atendente.nome_real}</div>
+                      <div><span className="font-bold text-gray-500 block">Usuário</span>{atendente.usuario}</div>
+                      <div><span className="font-bold text-gray-500 block">Matrícula</span>{atendente.matricula}</div>
+                      <div><span className="font-bold text-gray-500 block">Tag</span>{atendente.nome_tag}</div>
+                    </div>
+                    <div className="w-full md:w-auto flex justify-end">
+                      <button onClick={() => setAtendenteParaExcluir(atendente)} className="bg-red-100 text-red-600 hover:bg-red-200 h-10 w-10 flex items-center justify-center rounded-full transition-colors" aria-label={`Excluir ${atendente.nome_real}`}>
+                        <i className="bi bi-trash"></i>
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          ) : <EmptyState icone="bi-person-x" titulo="Nenhum Atendente" mensagem="Ainda não há atendentes cadastrados no sistema." />}
+                ))}
+              </div>
+            ) : (isAtendentesListOpen && !buscando) ? <EmptyState icone="bi-person-x" titulo="Nenhum Atendente" mensagem="Ainda não há atendentes cadastrados no sistema." /> : null}
+          </div>
         </div>
         </div>
       )}

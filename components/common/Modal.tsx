@@ -24,8 +24,8 @@ const Modal: React.FC<ModalProps> = ({ estaAberto, aoFechar, titulo, children, s
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4 transition-opacity duration-300 ease-in-out">
-      <div className={`bg-white rounded-lg shadow-xl w-full ${sizeClasses[size]} m-4 transform transition-all duration-300 ease-in-out`}>
-        <div className="flex justify-between items-center p-4 border-b">
+      <div className={`bg-white rounded-lg shadow-xl w-full ${sizeClasses[size]} m-4 flex flex-col max-h-[90vh] transform transition-all duration-300 ease-in-out`}>
+        <div className="flex-shrink-0 flex justify-between items-center p-4 border-b">
           <h3 className="text-xl font-semibold text-gray-800">{titulo}</h3>
           <button
             onClick={aoFechar}
@@ -35,7 +35,7 @@ const Modal: React.FC<ModalProps> = ({ estaAberto, aoFechar, titulo, children, s
             <i className="bi bi-x-lg"></i>
           </button>
         </div>
-        <div className="p-6">
+        <div className="p-6 overflow-y-auto">
           {children}
         </div>
       </div>

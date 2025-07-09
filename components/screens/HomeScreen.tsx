@@ -59,7 +59,7 @@ const HomeScreen: React.FC<Omit<AppContextType, 'pagina' | 'usuario' | 'setUsuar
             className="inline-flex items-center gap-2 text-estacio-blue font-semibold hover:underline"
           >
             <i className="bi bi-person-workspace"></i>
-            Sou Atendente - Versão:1.05.2
+            Sou Atendente - Versão:1.06
           </button>
         </div>
       </div>
