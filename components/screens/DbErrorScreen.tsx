@@ -1,5 +1,6 @@
 
 
+
 import React from 'react';
 import { Pagina } from '../../constants';
 import type { AppContextType } from '../../types';
@@ -111,8 +112,12 @@ CREATE TABLE public.agendamentos (
     <>
       <h1 className="text-2xl sm:text-3xl font-bold text-estacio-red mb-4">Falha de Rede ou Configuração de CORS</h1>
       <p className="text-gray-700 mb-6">
-        Ocorreu um erro ao tentar se comunicar com o servidor do banco de dados (<code>TypeError: Failed to fetch</code>). Isso geralmente é causado por problemas de conexão com a internet ou pela política de CORS (Cross-Origin Resource Sharing) do seu projeto Supabase.
+        Ocorreu um erro ao tentar se comunicar com o servidor do banco de dados. Isso geralmente é causado por problemas de conexão com a internet ou pela política de CORS (Cross-Origin Resource Sharing) do seu projeto Supabase.
       </p>
+      <div className="bg-red-50 border border-red-200 text-red-800 p-4 rounded-lg mb-6">
+          <p className="font-bold">Detalhes do Erro:</p>
+          <p className="font-mono text-sm mt-2">{connectionError?.errorMessage || 'Nenhum detalhe disponível.'}</p>
+       </div>
       <div className="space-y-8 text-left">
         <div>
           <h2 className="text-xl sm:text-2xl font-semibold text-gray-800 mb-2">Solução: Verifique a Conexão e o CORS</h2>

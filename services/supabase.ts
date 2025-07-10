@@ -1,6 +1,7 @@
 
 
 
+
 import { createClient } from '@supabase/supabase-js';
 import type { Atendente, Disponibilidade, Agendamento, DetalhesAgendamento, DisponibilidadeComAtendente, ItemHistorico, StatusAgendamento } from '../types';
 
@@ -178,7 +179,7 @@ export async function testarConexaoBancoDados(): Promise<ConnectionStatus> {
     return { success: true };
   } catch (e: any) {
     console.error('Erro inesperado ao testar conexão:', e);
-    if (e instanceof TypeError && e.message === 'Failed to fetch') {
+    if (e instanceof TypeError && e.message.includes('fetch')) {
       return { success: false, errorType: 'NETWORK_ERROR', errorMessage: e.message };
     }
     return { success: false, errorType: 'UNKNOWN', errorMessage: e.message };
