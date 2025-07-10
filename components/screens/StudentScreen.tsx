@@ -447,7 +447,7 @@ const StudentScreen: React.FC<Omit<AppContextType, 'pagina' | 'usuario' | 'setUs
                 required
               />
               <label htmlFor="consentimento_lgpd" className="text-sm text-gray-700 leading-snug">
-                Concedo consentimento explícito para o tratamento de meus dados, conforme a LGPD (Lei nº 13.709/2018). Consulte nossa <a href="https://www.serpro.gov.br/lgpd/cidadao/seu-consentimento-e-lei" target="_blank" rel="noopener noreferrer" className="text-estacio-blue hover:underline font-semibold">Política de Privacidade</a> para mais detalhes.
+                Li e concordo com a <a href="https://privacidade.estacio.br/home" target="_blank" rel="noopener noreferrer" className="text-estacio-blue hover:underline font-semibold">política de privacidade</a>, bem como com o tratamento dos meus dados para a finalidade prevista neste formulário. Ao continuar, você aceita que o Estácio e demais instituições de ensino do mesmo Grupo Econômico entre em contato.
               </label>
             </div>
             
