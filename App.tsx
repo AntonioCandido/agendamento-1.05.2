@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Pagina } from './constants';
 import type { Usuario } from './types';
-import { testarConexaoBancoDados } from './services/supabase';
+import { testarConexaoBancoDados, ConnectionStatus } from './services/supabase';
 import Spinner from './components/common/Spinner';
 
 import HomeScreen from './components/screens/HomeScreen';
@@ -15,11 +15,13 @@ const App: React.FC = () => {
   const [pagina, setPagina] = useState<Pagina>(Pagina.Inicio);
   const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [verificandoConexao, setVerificandoConexao] = useState(true);
+  const [connectionError, setConnectionError] = useState<ConnectionStatus | null>(null);
 
   useEffect(() => {
     const verificarConexao = async () => {
-      const conectado = await testarConexaoBancoDados();
-      if (!conectado) {
+      const conexao = await testarConexaoBancoDados();
+      if (!conexao.success) {
+        setConnectionError(conexao);
         setPagina(Pagina.ErroBD);
       }
       setVerificandoConexao(false);
@@ -47,7 +49,7 @@ const App: React.FC = () => {
       case Pagina.Candidato:
         return <StudentScreen setPagina={setPagina} />;
       case Pagina.ErroBD:
-        return <DbErrorScreen setPagina={setPagina} />;
+        return <DbErrorScreen setPagina={setPagina} connectionError={connectionError} />;
       default:
         return <HomeScreen setPagina={setPagina} />;
     }

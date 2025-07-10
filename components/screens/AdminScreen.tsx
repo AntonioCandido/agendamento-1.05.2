@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { obterTodosAtendentes, adicionarAtendente, excluirAtendente, atendenteTemDisponibilidades, obterHistoricoGeral, obterHorariosDisponiveis } from '../../services/supabase';
 import type { AppContextType, Atendente, ItemHistorico, DisponibilidadeComAtendente } from '../../types';
 import { Pagina } from '../../constants';
@@ -27,6 +27,7 @@ const AdminScreen: React.FC<Omit<AppContextType, 'pagina'>> = ({ setPagina, setU
   const [atendenteParaExcluir, setAtendenteParaExcluir] = useState<Atendente | null>(null);
   const [isAdicionarAtendenteOpen, setIsAdicionarAtendenteOpen] = useState(false);
   const [isAtendentesListOpen, setIsAtendentesListOpen] = useState(false);
+  const [atendenteExpandidoId, setAtendenteExpandidoId] = useState<string | null>(null);
 
   // Estado para Abas
   const [aba, setAba] = useState<'gerenciar' | 'historico' | 'disponiveis'>('gerenciar');
@@ -36,6 +37,8 @@ const AdminScreen: React.FC<Omit<AppContextType, 'pagina'>> = ({ setPagina, setU
   const [carregandoHistorico, setCarregandoHistorico] = useState(false);
   const [erroHistorico, setErroHistorico] = useState('');
   const [historicoSelecionado, setHistoricoSelecionado] = useState<ItemHistorico | null>(null);
+  const [ordemHistorico, setOrdemHistorico] = useState<'descendente' | 'ascendente'>('descendente');
+
 
   // Estado para Horários Disponíveis
   const [horariosDisponiveis, setHorariosDisponiveis] = useState<DisponibilidadeComAtendente[]>([]);
@@ -105,6 +108,10 @@ const AdminScreen: React.FC<Omit<AppContextType, 'pagina'>> = ({ setPagina, setU
       }
   };
 
+  const handleToggleAtendenteDetalhes = (id: string) => {
+    setAtendenteExpandidoId(prevId => (prevId === id ? null : id));
+  };
+
   const aoMudarInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setEstadoFormulario(prevState => ({ ...prevState, [name]: value }));
@@ -171,8 +178,19 @@ const AdminScreen: React.FC<Omit<AppContextType, 'pagina'>> = ({ setPagina, setU
     });
   };
 
+  const historicoOrdenado = useMemo(() => {
+    return [...historicoGeral].sort((a, b) => {
+      const dataA = new Date(a.horario_inicio).getTime();
+      const dataB = new Date(b.horario_inicio).getTime();
+      if (ordemHistorico === 'ascendente') {
+        return dataA - dataB;
+      }
+      return dataB - dataA;
+    });
+  }, [historicoGeral, ordemHistorico]);
+
   const exportarParaCSV = () => {
-    if (historicoGeral.length === 0) {
+    if (historicoOrdenado.length === 0) {
       alert("Não há dados no histórico para exportar.");
       return;
     }
@@ -183,7 +201,7 @@ const AdminScreen: React.FC<Omit<AppContextType, 'pagina'>> = ({ setPagina, setU
       "Data Conclusão", "Comentários"
     ];
     
-    const linhas = historicoGeral.map(item => [
+    const linhas = historicoOrdenado.map(item => [
       `"${item.status}"`,
       `"${item.atendente?.nome_real || 'N/A'}"`,
       `"${item.nome_candidato || ''}"`,
@@ -376,22 +394,50 @@ const AdminScreen: React.FC<Omit<AppContextType, 'pagina'>> = ({ setPagina, setU
           >
             {erroLista && <p className="text-red-500 mb-4 p-3 bg-red-50 rounded-lg text-center font-semibold">{erroLista}</p>}
             {buscando ? <div className="py-8"><Spinner /></div> : atendentes.length > 0 ? (
-              <div className="space-y-4">
-                {atendentes.map(atendente => (
-                  <div key={atendente.id} className="bg-gray-50 p-4 rounded-lg flex flex-col md:flex-row justify-between items-start md:items-center gap-4 transition-shadow hover:shadow-md">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-2 flex-grow text-sm w-full">
-                      <div><span className="font-bold text-gray-500 block">Nome Real</span>{atendente.nome_real}</div>
-                      <div><span className="font-bold text-gray-500 block">Usuário</span>{atendente.usuario}</div>
-                      <div><span className="font-bold text-gray-500 block">Matrícula</span>{atendente.matricula}</div>
-                      <div><span className="font-bold text-gray-500 block">Tag</span>{atendente.nome_tag}</div>
+              <div className="space-y-3">
+                {atendentes.map(atendente => {
+                  const isExpanded = atendenteExpandidoId === atendente.id;
+                  return (
+                    <div key={atendente.id} className="bg-gray-50 rounded-lg transition-shadow hover:shadow-md border border-gray-200/80 overflow-hidden">
+                      <div
+                        className="flex justify-between items-center p-4 cursor-pointer"
+                        onClick={() => handleToggleAtendenteDetalhes(atendente.id)}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleToggleAtendenteDetalhes(atendente.id)}}
+                        aria-expanded={isExpanded}
+                      >
+                        <div className="flex-grow">
+                          <p className="font-semibold text-gray-800">{atendente.nome_real}</p>
+                          <p className="text-sm text-gray-500">Matrícula: {atendente.matricula}</p>
+                        </div>
+                        <div className="flex items-center gap-3 ml-4">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setAtendenteParaExcluir(atendente);
+                            }}
+                            className="bg-red-100 text-red-600 hover:bg-red-200 h-9 w-9 flex items-center justify-center rounded-full transition-colors"
+                            aria-label={`Excluir ${atendente.nome_real}`}
+                          >
+                            <i className="bi bi-trash"></i>
+                          </button>
+                          <i className={`bi bi-chevron-down text-xl text-gray-500 transition-transform duration-300 ${isExpanded ? 'transform rotate-180' : ''}`}></i>
+                        </div>
+                      </div>
+
+                      <div className={`transition-all duration-300 ease-in-out bg-white ${isExpanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
+                        <div className="px-4 pb-4 pt-3 border-t border-gray-200">
+                          <h4 className="text-sm font-bold text-gray-500 mb-2 uppercase tracking-wider">Informações Completas</h4>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                            <div><span className="font-bold text-gray-500 block">Usuário</span>{atendente.usuario}</div>
+                            <div><span className="font-bold text-gray-500 block">Tag de Atendimento</span>{atendente.nome_tag}</div>
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                    <div className="w-full md:w-auto flex justify-end">
-                      <button onClick={() => setAtendenteParaExcluir(atendente)} className="bg-red-100 text-red-600 hover:bg-red-200 h-10 w-10 flex items-center justify-center rounded-full transition-colors" aria-label={`Excluir ${atendente.nome_real}`}>
-                        <i className="bi bi-trash"></i>
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (isAtendentesListOpen && !buscando) ? <EmptyState icone="bi-person-x" titulo="Nenhum Atendente" mensagem="Ainda não há atendentes cadastrados no sistema." /> : null}
           </div>
@@ -402,10 +448,20 @@ const AdminScreen: React.FC<Omit<AppContextType, 'pagina'>> = ({ setPagina, setU
       {aba === 'historico' && (
         <div className="bg-white p-4 sm:p-6 rounded-xl shadow-xl">
           <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-6 gap-4">
-            <h2 className="text-2xl font-semibold text-gray-700">Histórico Geral de Atendimentos</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-2xl font-semibold text-gray-700">Histórico Geral de Atendimentos</h2>
+              <button
+                onClick={() => setOrdemHistorico(prev => prev === 'descendente' ? 'ascendente' : 'descendente')}
+                className="p-2 rounded-full text-gray-500 hover:bg-gray-200 hover:text-estacio-blue transition-colors"
+                title={`Ordenar por data ${ordemHistorico === 'descendente' ? 'ascendente (mais antigas primeiro)' : 'descendente (mais recentes primeiro)'}`}
+                aria-label={`Ordenar por data ${ordemHistorico === 'descendente' ? 'ascendente (mais antigas primeiro)' : 'descendente (mais recentes primeiro)'}`}
+              >
+                  <i className={`bi ${ordemHistorico === 'descendente' ? 'bi-sort-down' : 'bi-sort-up'} text-xl`}></i>
+              </button>
+            </div>
             <button 
               onClick={exportarParaCSV}
-              disabled={carregandoHistorico || historicoGeral.length === 0}
+              disabled={carregandoHistorico || historicoOrdenado.length === 0}
               className="flex items-center justify-center gap-2 bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 transition-transform transform hover:scale-105 disabled:opacity-50"
             >
               <i className="bi bi-file-earmark-excel"></i>
@@ -416,9 +472,9 @@ const AdminScreen: React.FC<Omit<AppContextType, 'pagina'>> = ({ setPagina, setU
           {erroHistorico && <p className="text-red-500 mb-4 p-3 bg-red-50 rounded-lg text-center font-semibold">{erroHistorico}</p>}
 
           {carregandoHistorico ? <div className="py-8"><Spinner /></div> : (
-            historicoGeral.length > 0 ? (
+            historicoOrdenado.length > 0 ? (
                 <ul className="space-y-3">
-                    {historicoGeral.map(item => (
+                    {historicoOrdenado.map(item => (
                         <li 
                           key={item.id} 
                           className={`flex items-center p-4 bg-gray-50 rounded-lg gap-4 transition-all duration-200 hover:shadow-md hover:bg-gray-100 cursor-pointer group border-l-4 ${statusBorderColors[item.status] || 'border-transparent'}`}

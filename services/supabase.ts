@@ -156,23 +156,59 @@ const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 
 export const supabase = createClient<Database>(supabaseUrl, supabaseKey);
 
+export type ConnectionStatus = {
+  success: boolean;
+  errorType?: 'TABLE_NOT_FOUND' | 'NETWORK_ERROR' | 'UNKNOWN';
+  errorMessage?: string;
+};
+
+// Helper para buscar todos os resultados de uma consulta, lidando com a paginação do Supabase.
+const fetchAllPages = async (queryBuilder: any) => {
+    const BATCH_SIZE = 1000;
+    let allRows: any[] = [];
+    let from = 0;
+    
+    while (true) {
+        const { data, error } = await queryBuilder.range(from, from + BATCH_SIZE - 1);
+        
+        if (error) {
+            console.error('Erro ao buscar dados paginados:', error.message);
+            throw error;
+        }
+
+        if (data && data.length > 0) {
+            allRows = allRows.concat(data);
+            from += data.length;
+        }
+
+        // Se a leva de dados for menor que o tamanho do lote, é a última página.
+        if (!data || data.length < BATCH_SIZE) {
+            break;
+        }
+    }
+    return allRows;
+};
+
 
 // --- Teste de Conexão ---
-export async function testarConexaoBancoDados(): Promise<boolean> {
+export async function testarConexaoBancoDados(): Promise<ConnectionStatus> {
   try {
     const { error } = await supabase.from('atendentes').select('id', { head: true, count: 'exact' }).limit(1);
     if (error && error.code === '42P01') { // 42P01: undefined_table
       console.warn('Teste de conexão falhou: Tabela "atendentes" não encontrada.');
-      return false;
+      return { success: false, errorType: 'TABLE_NOT_FOUND', errorMessage: error.message };
     }
     if (error) {
         console.error('Falha na conexão com o banco de dados:', error.message);
-        return false;
+        return { success: false, errorType: 'UNKNOWN', errorMessage: error.message };
     }
-    return true;
-  } catch (e) {
+    return { success: true };
+  } catch (e: any) {
     console.error('Erro inesperado ao testar conexão:', e);
-    return false;
+    if (e instanceof TypeError && e.message === 'Failed to fetch') {
+      return { success: false, errorType: 'NETWORK_ERROR', errorMessage: e.message };
+    }
+    return { success: false, errorType: 'UNKNOWN', errorMessage: e.message };
   }
 }
 
@@ -450,28 +486,20 @@ export async function atualizarStatusAgendamento(agendamentoId: string, dados: {
 export async function obterHistoricoParaAtendente(atendenteId: string): Promise<ItemHistorico[]> {
     const agora = new Date().toISOString();
     
-    const { data: agendamentosConcluidosData, error: erroAgendamentos } = await supabase
+    const agendamentosQuery = supabase
         .from('agendamentos')
         .select('*, disponibilidades!inner(horario_inicio, horario_fim)')
         .eq('disponibilidades.atendente_id', atendenteId)
         .in('status', ['Atendido', 'Cancelado', 'Não compareceu']);
+    const agendamentosConcluidosData = await fetchAllPages(agendamentosQuery);
         
-    if (erroAgendamentos) {
-        console.error('Erro ao buscar histórico de agendamentos:', erroAgendamentos.message);
-        throw erroAgendamentos;
-    }
-
-    const { data: horariosExpirados, error: erroHorarios } = await supabase
+    const horariosExpiradosQuery = supabase
         .from('disponibilidades')
         .select('*')
         .eq('atendente_id', atendenteId)
         .eq('esta_agendado', false)
         .lt('horario_fim', agora);
-        
-    if (erroHorarios) {
-        console.error('Erro ao buscar horários expirados:', erroHorarios.message);
-        throw erroHorarios;
-    }
+    const horariosExpirados = await fetchAllPages(horariosExpiradosQuery);
     
     const historicoAgendamentos: ItemHistorico[] = agendamentosConcluidosData
       ?.map(ag => {
@@ -494,7 +522,7 @@ export async function obterHistoricoParaAtendente(atendenteId: string): Promise<
     
     const historicoFinal = [...historicoAgendamentos, ...historicoExpirados];
     
-    historicoFinal.sort((a, b) => new Date(b.horario_inicio).getTime() - new Date(a.horario_inicio).getTime());
+    historicoFinal.sort((a, b) => new Date(a.horario_inicio).getTime() - new Date(b.horario_inicio).getTime());
 
     return historicoFinal;
 }
@@ -503,7 +531,7 @@ export async function obterHistoricoGeral(): Promise<ItemHistorico[]> {
   const agora = new Date().toISOString();
 
   // 1. Obter todos os agendamentos (Pendente, Atendido, Cancelado, etc.)
-  const { data: agendamentosData, error: erroAgendamentos } = await supabase
+  const agendamentosQuery = supabase
     .from('agendamentos')
     .select(`
       *,
@@ -515,14 +543,10 @@ export async function obterHistoricoGeral(): Promise<ItemHistorico[]> {
         )
       )
     `);
-  
-  if (erroAgendamentos) {
-    console.error('Erro ao buscar histórico de agendamentos:', erroAgendamentos.message);
-    throw erroAgendamentos;
-  }
+    const agendamentosData = await fetchAllPages(agendamentosQuery);
 
   // 2. Obter todos os horários de disponibilidade que expiraram (não foram agendados)
-  const { data: horariosExpiradosData, error: erroHorarios } = await supabase
+  const horariosExpiradosQuery = supabase
     .from('disponibilidades')
     .select(`
       *,
@@ -532,11 +556,7 @@ export async function obterHistoricoGeral(): Promise<ItemHistorico[]> {
     `)
     .eq('esta_agendado', false)
     .lt('horario_fim', agora);
-
-  if (erroHorarios) {
-    console.error('Erro ao buscar horários expirados:', erroHorarios.message);
-    throw erroHorarios;
-  }
+  const horariosExpiradosData = await fetchAllPages(horariosExpiradosQuery);
   
   // 3. Formatar os dados para o tipo ItemHistorico
   const historicoAgendamentos: ItemHistorico[] = agendamentosData
@@ -563,10 +583,8 @@ export async function obterHistoricoGeral(): Promise<ItemHistorico[]> {
     };
   }) || [];
   
-  // 4. Combinar e ordenar
+  // 4. Combinar
   const historicoFinal = [...historicoAgendamentos, ...historicoExpirados];
   
-  historicoFinal.sort((a, b) => new Date(a.horario_inicio).getTime() - new Date(b.horario_inicio).getTime());
-
   return historicoFinal;
 }

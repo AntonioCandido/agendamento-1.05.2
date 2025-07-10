@@ -75,30 +75,30 @@ const HistoryDetailModal: React.FC<HistoryDetailModalProps> = ({ estaAberto, aoF
             <div className="flex border-b border-gray-200">
                 <button
                     onClick={() => setAba('info')}
-                    className={`flex-1 py-3 px-4 text-center font-semibold transition-colors duration-200 ${
+                    className={`flex-1 py-3 px-4 text-center font-semibold text-sm uppercase tracking-wider transition-colors duration-200 ${
                         aba === 'info'
                         ? 'border-b-2 border-estacio-blue text-estacio-blue'
                         : 'text-gray-500 hover:text-gray-800'
                     }`}
                 >
-                    Informações do Agendamento
+                    INFORMAÇÕES
                 </button>
                 <button
                     onClick={() => setAba('comentarios')}
-                    className={`flex-1 py-3 px-4 text-center font-semibold transition-colors duration-200 ${
+                    className={`flex-1 py-3 px-4 text-center font-semibold text-sm uppercase tracking-wider transition-colors duration-200 ${
                         aba === 'comentarios'
                         ? 'border-b-2 border-estacio-blue text-estacio-blue'
                         : 'text-gray-500 hover:text-gray-800'
                     }`}
                 >
-                    Comentários do Atendente
+                    COMENTÁRIOS
                 </button>
             </div>
             
             <div className="pt-2">
               {aba === 'info' && (
                  <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 animate-fade-in">
-                    <h4 className="font-bold text-gray-700 mb-4">Detalhes do Agendamento</h4>
+                    <h4 className="font-bold text-gray-700 mb-4">Informações do Agendamento</h4>
                     <div className="max-h-60 overflow-y-auto pr-2 space-y-4">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-4 gap-x-6">
                         <DetalheItem label="Nome do Candidato" value={item.nome_candidato} />
@@ -115,7 +115,7 @@ const HistoryDetailModal: React.FC<HistoryDetailModalProps> = ({ estaAberto, aoF
 
               {aba === 'comentarios' && (
                 <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 animate-fade-in">
-                  <h4 className="font-bold text-gray-700 mb-2">Comentários do Atendente</h4>
+                  <h4 className="font-bold text-gray-700 mb-2">Comentários</h4>
                   {item.comentarios ? (
                     <p className="text-gray-700 bg-white p-3 rounded-lg text-sm whitespace-pre-wrap border border-gray-200">{item.comentarios}</p>
                   ) : (

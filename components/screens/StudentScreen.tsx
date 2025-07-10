@@ -346,10 +346,15 @@ const StudentScreen: React.FC<Omit<AppContextType, 'pagina' | 'usuario' | 'setUs
                                           <button
                                               key={horario.id}
                                               onClick={() => selecionarHorario(horario)}
-                                              className="bg-white rounded-md py-3 px-2 text-center transition-all duration-200 transform hover:scale-105 hover:shadow-md cursor-pointer border-2 border-gray-200 hover:border-estacio-blue focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-estacio-blue"
-                                              aria-label={`Agendar para ${hora}`}
+                                              className="bg-white rounded-md py-2 px-2 text-center transition-all duration-200 transform hover:scale-105 hover:shadow-md cursor-pointer border-2 border-gray-200 hover:border-estacio-blue focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-estacio-blue"
+                                              aria-label={`Agendar para ${hora} com ${horario.atendentes?.nome_tag}`}
                                           >
                                               <p className="font-bold text-lg text-estacio-blue">{hora}</p>
+                                              {horario.atendentes?.nome_tag && (
+                                                <p className="text-xs text-gray-500 mt-1 truncate" title={horario.atendentes.nome_tag}>
+                                                  {horario.atendentes.nome_tag}
+                                                </p>
+                                              )}
                                           </button>
                                       );
                                   })}
