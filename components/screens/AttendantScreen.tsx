@@ -14,6 +14,17 @@ const DIAS_SEMANA = [
   { id: 4, nome: 'Qui' }, { id: 5, nome: 'Sex' }, { id: 6, nome: 'Sáb' }, { id: 0, nome: 'Dom' }
 ];
 
+const getDefaultDateRange = () => {
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(endDate.getDate() - 30);
+    return {
+        inicio: startDate.toISOString().split('T')[0],
+        fim: endDate.toISOString().split('T')[0],
+    };
+};
+
+
 const AttendantScreen: React.FC<Omit<AppContextType, 'pagina'>> = ({ setPagina, usuario, setUsuario }) => {
   // Estados da UI
   const [aba, setAba] = useState<'disponiveis' | 'agendados' | 'historico'>('disponiveis');
@@ -26,6 +37,8 @@ const AttendantScreen: React.FC<Omit<AppContextType, 'pagina'>> = ({ setPagina, 
   const [disponibilidades, setDisponibilidades] = useState<Disponibilidade[]>([]);
   const [agendamentos, setAgendamentos] = useState<DetalhesAgendamento[]>([]);
   const [historico, setHistorico] = useState<ItemHistorico[]>([]);
+  const [datasHistorico, setDatasHistorico] = useState(getDefaultDateRange());
+
 
   // Estados para Gerador de Horários
   const [adicionando, setAdicionando] = useState(false);
@@ -41,6 +54,7 @@ const AttendantScreen: React.FC<Omit<AppContextType, 'pagina'>> = ({ setPagina, 
   const [agendamentoParaAtualizar, setAgendamentoParaAtualizar] = useState<DetalhesAgendamento | null>(null);
   const [historicoSelecionado, setHistoricoSelecionado] = useState<ItemHistorico | null>(null);
 
+  const hoje = new Date().toISOString().split('T')[0];
   const atendente = usuario as Atendente;
 
   const formatarData = (dataString: string | null | undefined) => {
@@ -48,6 +62,11 @@ const AttendantScreen: React.FC<Omit<AppContextType, 'pagina'>> = ({ setPagina, 
     return new Date(dataString).toLocaleString('pt-BR', {
       day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
     });
+  };
+    
+  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setDatasHistorico(prev => ({ ...prev, [name]: value }));
   };
 
   const renderizarStatusIcone = (status: ItemHistorico['status']) => {
@@ -78,7 +97,8 @@ const AttendantScreen: React.FC<Omit<AppContextType, 'pagina'>> = ({ setPagina, 
         const agendamentosOrdenados = data.sort((a, b) => new Date(a.horario_inicio).getTime() - new Date(b.horario_inicio).getTime());
         setAgendamentos(agendamentosOrdenados);
       } else if (aba === 'historico') {
-        const data = await obterHistoricoParaAtendente(atendente.id);
+        const dataFimCompleta = `${datasHistorico.fim}T23:59:59`;
+        const data = await obterHistoricoParaAtendente(atendente.id, datasHistorico.inicio, dataFimCompleta);
         setHistorico(data);
       }
     } catch (err) {
@@ -86,7 +106,7 @@ const AttendantScreen: React.FC<Omit<AppContextType, 'pagina'>> = ({ setPagina, 
     } finally {
       setCarregando(false);
     }
-  }, [atendente, aba]);
+  }, [atendente, aba, datasHistorico]);
 
   useEffect(() => {
     // Apenas busca os dados se a seção de horários estiver aberta.
@@ -145,6 +165,14 @@ const AttendantScreen: React.FC<Omit<AppContextType, 'pagina'>> = ({ setPagina, 
     e.preventDefault();
     setErro('');
     const { dataInicio, dataFim, horaInicio, horaFim } = geradorForm;
+
+    const dataInicioSelecionada = new Date(`${dataInicio}T00:00:00`);
+    const hojeSemHoras = new Date(`${hoje}T00:00:00`);
+
+    if (dataInicioSelecionada < hojeSemHoras) {
+      setErro('A data de início não pode ser anterior à data atual.');
+      return;
+    }
 
     if (duracaoSlot < 5) {
       setErro('O intervalo de atendimento deve ser de no mínimo 5 minutos.');
@@ -247,7 +275,7 @@ const AttendantScreen: React.FC<Omit<AppContextType, 'pagina'>> = ({ setPagina, 
   }
 
   return (
-    <div className="container mx-auto p-4 sm:p-6">
+    <main className="container mx-auto p-4 sm:p-6">
       <img 
         src="https://cdn.portal.estacio.br/logotipo_marca_estacio_preto_HOME_d4bc9da518.svg" 
         alt="Logo Estácio" 
@@ -289,7 +317,7 @@ const AttendantScreen: React.FC<Omit<AppContextType, 'pagina'>> = ({ setPagina, 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
                   <div>
                       <label htmlFor="dataInicio" className="block text-sm font-bold text-gray-700 mb-1">Data de Início</label>
-                      <input id="dataInicio" name="dataInicio" type="date" value={geradorForm.dataInicio} onChange={aoMudarGerador} required className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-estacio-blue/50"/>
+                      <input id="dataInicio" name="dataInicio" type="date" value={geradorForm.dataInicio} onChange={aoMudarGerador} required className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-estacio-blue/50" min={hoje}/>
                   </div>
                   <div>
                       <label htmlFor="dataFim" className="block text-sm font-bold text-gray-700 mb-1">Data de Fim (opcional)</label>
@@ -403,7 +431,18 @@ const AttendantScreen: React.FC<Omit<AppContextType, 'pagina'>> = ({ setPagina, 
                           ) : <EmptyState icone="bi-journal-x" titulo="Nenhum Agendamento" mensagem="Ainda não há agendamentos futuros no sistema." />
                       )}
                       {aba === 'historico' && (
-                          historico.length > 0 ? (
+                        <div>
+                          <div className="flex flex-col sm:flex-row gap-4 mb-6 p-4 bg-gray-50 rounded-lg border">
+                              <div className="flex-1">
+                                  <label htmlFor="dataInicioHist" className="block text-sm font-bold text-gray-700 mb-1">Data Início</label>
+                                  <input id="dataInicioHist" name="inicio" type="date" value={datasHistorico.inicio} onChange={handleDateChange} className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-estacio-blue/50"/>
+                              </div>
+                              <div className="flex-1">
+                                  <label htmlFor="dataFimHist" className="block text-sm font-bold text-gray-700 mb-1">Data Fim</label>
+                                  <input id="dataFimHist" name="fim" type="date" value={datasHistorico.fim} onChange={handleDateChange} min={datasHistorico.inicio} className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-estacio-blue/50"/>
+                              </div>
+                          </div>
+                          {historico.length > 0 ? (
                               <ul className="space-y-3">
                                   {historico.map(item => (
                                       <li key={item.id} className="flex items-center p-4 bg-gray-50 rounded-lg gap-4 transition-all duration-200 hover:shadow-md hover:bg-gray-100 cursor-pointer group" onClick={() => setHistoricoSelecionado(item)}>
@@ -421,7 +460,9 @@ const AttendantScreen: React.FC<Omit<AppContextType, 'pagina'>> = ({ setPagina, 
                                       </li>
                                   ))}
                               </ul>
-                          ) : <EmptyState icone="bi-clipboard-x" titulo="Histórico Vazio" mensagem="Você ainda não possui atendimentos concluídos ou horários expirados." />
+                          ) : <EmptyState icone="bi-clipboard-x" titulo="Histórico Vazio" mensagem="Nenhum registro encontrado para o período selecionado." />
+                        }
+                        </div>
                       )}
                   </div>
               )}
@@ -461,7 +502,7 @@ const AttendantScreen: React.FC<Omit<AppContextType, 'pagina'>> = ({ setPagina, 
         aoFechar={() => setHistoricoSelecionado(null)}
         item={historicoSelecionado}
       />
-    </div>
+    </main>
   );
 };
 

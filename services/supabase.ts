@@ -1,5 +1,6 @@
 
 
+
 import { createClient } from '@supabase/supabase-js';
 import type { Atendente, Disponibilidade, Agendamento, DetalhesAgendamento, DisponibilidadeComAtendente, ItemHistorico, StatusAgendamento } from '../types';
 
@@ -161,34 +162,6 @@ export type ConnectionStatus = {
   errorType?: 'TABLE_NOT_FOUND' | 'NETWORK_ERROR' | 'UNKNOWN';
   errorMessage?: string;
 };
-
-// Helper para buscar todos os resultados de uma consulta, lidando com a paginação do Supabase.
-const fetchAllPages = async (queryBuilder: any) => {
-    const BATCH_SIZE = 1000;
-    let allRows: any[] = [];
-    let from = 0;
-    
-    while (true) {
-        const { data, error } = await queryBuilder.range(from, from + BATCH_SIZE - 1);
-        
-        if (error) {
-            console.error('Erro ao buscar dados paginados:', error.message);
-            throw error;
-        }
-
-        if (data && data.length > 0) {
-            allRows = allRows.concat(data);
-            from += data.length;
-        }
-
-        // Se a leva de dados for menor que o tamanho do lote, é a última página.
-        if (!data || data.length < BATCH_SIZE) {
-            break;
-        }
-    }
-    return allRows;
-};
-
 
 // --- Teste de Conexão ---
 export async function testarConexaoBancoDados(): Promise<ConnectionStatus> {
@@ -483,23 +456,39 @@ export async function atualizarStatusAgendamento(agendamentoId: string, dados: {
 
 // --- Serviços de Histórico ---
 
-export async function obterHistoricoParaAtendente(atendenteId: string): Promise<ItemHistorico[]> {
+export async function obterHistoricoParaAtendente(atendenteId: string, dataInicio?: string, dataFim?: string): Promise<ItemHistorico[]> {
     const agora = new Date().toISOString();
     
-    const agendamentosQuery = supabase
+    let agendamentosQuery = supabase
         .from('agendamentos')
         .select('*, disponibilidades!inner(horario_inicio, horario_fim)')
         .eq('disponibilidades.atendente_id', atendenteId)
         .in('status', ['Atendido', 'Cancelado', 'Não compareceu']);
-    const agendamentosConcluidosData = await fetchAllPages(agendamentosQuery);
+
+    if (dataInicio) agendamentosQuery = agendamentosQuery.gte('disponibilidades.horario_inicio', dataInicio);
+    if (dataFim) agendamentosQuery = agendamentosQuery.lte('disponibilidades.horario_inicio', dataFim);
         
-    const horariosExpiradosQuery = supabase
+    const { data: agendamentosConcluidosData, error: agendamentosError } = await agendamentosQuery;
+    if (agendamentosError) {
+        console.error('Erro ao buscar agendamentos concluídos:', agendamentosError.message);
+        throw agendamentosError;
+    }
+        
+    let horariosExpiradosQuery = supabase
         .from('disponibilidades')
         .select('*')
         .eq('atendente_id', atendenteId)
         .eq('esta_agendado', false)
         .lt('horario_fim', agora);
-    const horariosExpirados = await fetchAllPages(horariosExpiradosQuery);
+
+    if (dataInicio) horariosExpiradosQuery = horariosExpiradosQuery.gte('horario_inicio', dataInicio);
+    if (dataFim) horariosExpiradosQuery = horariosExpiradosQuery.lte('horario_inicio', dataFim);
+
+    const { data: horariosExpirados, error: horariosExpiradosError } = await horariosExpiradosQuery;
+    if (horariosExpiradosError) {
+        console.error('Erro ao buscar horários expirados:', horariosExpiradosError.message);
+        throw horariosExpiradosError;
+    }
     
     const historicoAgendamentos: ItemHistorico[] = agendamentosConcluidosData
       ?.map(ag => {
@@ -527,11 +516,11 @@ export async function obterHistoricoParaAtendente(atendenteId: string): Promise<
     return historicoFinal;
 }
 
-export async function obterHistoricoGeral(): Promise<ItemHistorico[]> {
+export async function obterHistoricoGeral(dataInicio?: string, dataFim?: string): Promise<ItemHistorico[]> {
   const agora = new Date().toISOString();
 
   // 1. Obter todos os agendamentos (Pendente, Atendido, Cancelado, etc.)
-  const agendamentosQuery = supabase
+  let agendamentosQuery = supabase
     .from('agendamentos')
     .select(`
       *,
@@ -543,10 +532,19 @@ export async function obterHistoricoGeral(): Promise<ItemHistorico[]> {
         )
       )
     `);
-    const agendamentosData = await fetchAllPages(agendamentosQuery);
+
+  if (dataInicio) agendamentosQuery = agendamentosQuery.gte('disponibilidades.horario_inicio', dataInicio);
+  if (dataFim) agendamentosQuery = agendamentosQuery.lte('disponibilidades.horario_inicio', dataFim);
+
+  const { data: agendamentosData, error: agendamentosError } = await agendamentosQuery;
+  if (agendamentosError) {
+    console.error('Erro ao buscar agendamentos:', agendamentosError.message);
+    throw agendamentosError;
+  }
+
 
   // 2. Obter todos os horários de disponibilidade que expiraram (não foram agendados)
-  const horariosExpiradosQuery = supabase
+  let horariosExpiradosQuery = supabase
     .from('disponibilidades')
     .select(`
       *,
@@ -556,7 +554,15 @@ export async function obterHistoricoGeral(): Promise<ItemHistorico[]> {
     `)
     .eq('esta_agendado', false)
     .lt('horario_fim', agora);
-  const horariosExpiradosData = await fetchAllPages(horariosExpiradosQuery);
+
+  if (dataInicio) horariosExpiradosQuery = horariosExpiradosQuery.gte('horario_inicio', dataInicio);
+  if (dataFim) horariosExpiradosQuery = horariosExpiradosQuery.lte('horario_inicio', dataFim);
+
+  const { data: horariosExpiradosData, error: horariosExpiradosError } = await horariosExpiradosQuery;
+  if (horariosExpiradosError) {
+    console.error('Erro ao buscar horários expirados:', horariosExpiradosError.message);
+    throw horariosExpiradosError;
+  }
   
   // 3. Formatar os dados para o tipo ItemHistorico
   const historicoAgendamentos: ItemHistorico[] = agendamentosData

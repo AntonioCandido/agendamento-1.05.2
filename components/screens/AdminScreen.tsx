@@ -9,6 +9,17 @@ import ConfirmationModal from '../common/ConfirmationModal';
 import HistoryDetailModal from '../common/HistoryDetailModal';
 import EmptyState from '../common/EmptyState';
 
+// Função para obter os últimos 30 dias
+const getDefaultDateRange = () => {
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(endDate.getDate() - 30);
+    return {
+        inicio: startDate.toISOString().split('T')[0],
+        fim: endDate.toISOString().split('T')[0],
+    };
+};
+
 const AdminScreen: React.FC<Omit<AppContextType, 'pagina'>> = ({ setPagina, setUsuario }) => {
   // Estado para Gerenciamento de Atendentes
   const [atendentes, setAtendentes] = useState<Atendente[]>([]);
@@ -38,7 +49,7 @@ const AdminScreen: React.FC<Omit<AppContextType, 'pagina'>> = ({ setPagina, setU
   const [erroHistorico, setErroHistorico] = useState('');
   const [historicoSelecionado, setHistoricoSelecionado] = useState<ItemHistorico | null>(null);
   const [ordemHistorico, setOrdemHistorico] = useState<'descendente' | 'ascendente'>('descendente');
-
+  const [datasHistorico, setDatasHistorico] = useState(getDefaultDateRange());
 
   // Estado para Horários Disponíveis
   const [horariosDisponiveis, setHorariosDisponiveis] = useState<DisponibilidadeComAtendente[]>([]);
@@ -66,11 +77,12 @@ const AdminScreen: React.FC<Omit<AppContextType, 'pagina'>> = ({ setPagina, setU
     }
   }, []);
 
-  const buscarHistoricoGeral = useCallback(async () => {
+  const buscarHistoricoGeral = useCallback(async (inicio: string, fim: string) => {
     setErroHistorico('');
     setCarregandoHistorico(true);
     try {
-      const data = await obterHistoricoGeral();
+      const dataFimCompleta = `${fim}T23:59:59`;
+      const data = await obterHistoricoGeral(inicio, dataFimCompleta);
       setHistoricoGeral(data);
     } catch (err) {
       setErroHistorico('Falha ao carregar o histórico geral.');
@@ -94,11 +106,11 @@ const AdminScreen: React.FC<Omit<AppContextType, 'pagina'>> = ({ setPagina, setU
 
   useEffect(() => {
     if (aba === 'historico') {
-      buscarHistoricoGeral();
+      buscarHistoricoGeral(datasHistorico.inicio, datasHistorico.fim);
     } else if (aba === 'disponiveis') {
       buscarHorariosDisponiveis();
     }
-  }, [aba, buscarHistoricoGeral, buscarHorariosDisponiveis]);
+  }, [aba, datasHistorico, buscarHistoricoGeral, buscarHorariosDisponiveis]);
   
   const handleToggleAtendentesList = () => {
       const willBeOpen = !isAtendentesListOpen;
@@ -115,6 +127,11 @@ const AdminScreen: React.FC<Omit<AppContextType, 'pagina'>> = ({ setPagina, setU
   const aoMudarInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setEstadoFormulario(prevState => ({ ...prevState, [name]: value }));
+  };
+    
+  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setDatasHistorico(prev => ({ ...prev, [name]: value }));
   };
 
   const adicionarNovoAtendente = async (e: React.FormEvent) => {
@@ -212,11 +229,11 @@ const AdminScreen: React.FC<Omit<AppContextType, 'pagina'>> = ({ setPagina, setU
       `"${formatarData(item.horario_inicio)}"`,
       `"${formatarData(item.horario_fim)}"`,
       `"${item.data_conclusao ? formatarData(item.data_conclusao) : ''}"`,
-      `"${item.comentarios?.replace(/"/g, '""').replace(/\n/g, ' ') || ''}"` // Escape double quotes and remove newlines
+      `"${item.comentarios?.replace(/"/g, '""').replace(/\\n/g, ' ') || ''}"` // Escape double quotes and remove newlines
     ]);
     
-    let conteudoCsv = cabecalho.join(';') + '\n';
-    conteudoCsv += linhas.map(linha => linha.join(';')).join('\n');
+    let conteudoCsv = cabecalho.join(';') + '\\n';
+    conteudoCsv += linhas.map(linha => linha.join(';')).join('\\n');
     
     const blob = new Blob([`\uFEFF${conteudoCsv}`], { type: 'text/csv;charset=utf-8;' }); // Add BOM for Excel
     const link = document.createElement('a');
@@ -244,8 +261,8 @@ const AdminScreen: React.FC<Omit<AppContextType, 'pagina'>> = ({ setPagina, setU
       `"${item.atendentes?.nome_tag || 'N/A'}"`
     ]);
     
-    let conteudoCsv = cabecalho.join(';') + '\n';
-    conteudoCsv += linhas.map(linha => linha.join(';')).join('\n');
+    let conteudoCsv = cabecalho.join(';') + '\\n';
+    conteudoCsv += linhas.map(linha => linha.join(';')).join('\\n');
     
     const blob = new Blob([`\uFEFF${conteudoCsv}`], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
@@ -271,7 +288,7 @@ const AdminScreen: React.FC<Omit<AppContextType, 'pagina'>> = ({ setPagina, setU
   };
 
   return (
-    <div className="container mx-auto p-4 sm:p-6">
+    <main className="container mx-auto p-4 sm:p-6">
       <img 
         src="https://cdn.portal.estacio.br/logotipo_marca_estacio_preto_HOME_d4bc9da518.svg" 
         alt="Logo Estácio" 
@@ -350,12 +367,12 @@ const AdminScreen: React.FC<Omit<AppContextType, 'pagina'>> = ({ setPagina, setU
             {erroFormulario && <p className="text-red-500 mb-4 p-3 bg-red-50 rounded-lg text-center font-semibold">{erroFormulario}</p>}
             <form onSubmit={adicionarNovoAtendente} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <IconInput name="usuario" value={estadoFormulario.usuario} onChange={aoMudarInput} placeholder="Nome de usuário" required icone="bi-person" />
-                    <IconInput name="senha" type="password" value={estadoFormulario.senha} onChange={aoMudarInput} placeholder="Senha" required icone="bi-lock" />
-                    <IconInput name="nome_real" value={estadoFormulario.nome_real} onChange={aoMudarInput} placeholder="Nome Real" required icone="bi-person-badge" />
-                    <IconInput name="matricula" value={estadoFormulario.matricula} onChange={aoMudarInput} placeholder="Matrícula" required icone="bi-card-list" />
+                    <IconInput aria-label="Nome de usuário" name="usuario" value={estadoFormulario.usuario} onChange={aoMudarInput} placeholder="Nome de usuário" required icone="bi-person" />
+                    <IconInput aria-label="Senha" name="senha" type="password" value={estadoFormulario.senha} onChange={aoMudarInput} placeholder="Senha" required icone="bi-lock" />
+                    <IconInput aria-label="Nome Real" name="nome_real" value={estadoFormulario.nome_real} onChange={aoMudarInput} placeholder="Nome Real" required icone="bi-person-badge" />
+                    <IconInput aria-label="Matrícula" name="matricula" value={estadoFormulario.matricula} onChange={aoMudarInput} placeholder="Matrícula" required icone="bi-card-list" />
                 </div>
-                <IconInput name="nome_tag" value={estadoFormulario.nome_tag} onChange={aoMudarInput} placeholder="Nome Tag (Ex: 'Atendimento TI')" required icone="bi-tag" />
+                <IconInput aria-label="Nome Tag (Ex: 'Atendimento TI')" name="nome_tag" value={estadoFormulario.nome_tag} onChange={aoMudarInput} placeholder="Nome Tag (Ex: 'Atendimento TI')" required icone="bi-tag" />
                 <button type="submit" disabled={adicionando} className="w-full flex items-center justify-center gap-2 mt-4 bg-estacio-blue text-white font-bold py-3 px-6 rounded-lg hover:bg-opacity-90 transition-all duration-300 transform hover:scale-105 disabled:opacity-50">
                   {adicionando ? <Spinner /> : (
                     <>
@@ -449,7 +466,7 @@ const AdminScreen: React.FC<Omit<AppContextType, 'pagina'>> = ({ setPagina, setU
         <div className="bg-white p-4 sm:p-6 rounded-xl shadow-xl">
           <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-6 gap-4">
             <div className="flex items-center gap-2">
-              <h2 className="text-2xl font-semibold text-gray-700">Histórico Geral de Atendimentos</h2>
+              <h2 className="text-2xl font-semibold text-gray-700">Histórico Geral</h2>
               <button
                 onClick={() => setOrdemHistorico(prev => prev === 'descendente' ? 'ascendente' : 'descendente')}
                 className="p-2 rounded-full text-gray-500 hover:bg-gray-200 hover:text-estacio-blue transition-colors"
@@ -468,6 +485,18 @@ const AdminScreen: React.FC<Omit<AppContextType, 'pagina'>> = ({ setPagina, setU
               <span>Exportar para Excel</span>
             </button>
           </div>
+
+          <div className="flex flex-col sm:flex-row gap-4 mb-6 p-4 bg-gray-50 rounded-lg border">
+              <div className="flex-1">
+                  <label htmlFor="dataInicio" className="block text-sm font-bold text-gray-700 mb-1">Data Início</label>
+                  <input id="dataInicio" name="inicio" type="date" value={datasHistorico.inicio} onChange={handleDateChange} className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-estacio-blue/50"/>
+              </div>
+              <div className="flex-1">
+                  <label htmlFor="dataFim" className="block text-sm font-bold text-gray-700 mb-1">Data Fim</label>
+                  <input id="dataFim" name="fim" type="date" value={datasHistorico.fim} onChange={handleDateChange} min={datasHistorico.inicio} className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-estacio-blue/50"/>
+              </div>
+          </div>
+
 
           {erroHistorico && <p className="text-red-500 mb-4 p-3 bg-red-50 rounded-lg text-center font-semibold">{erroHistorico}</p>}
 
@@ -496,7 +525,7 @@ const AdminScreen: React.FC<Omit<AppContextType, 'pagina'>> = ({ setPagina, setU
                         </li>
                     ))}
                 </ul>
-            ) : <EmptyState icone="bi-clipboard-x" titulo="Histórico Vazio" mensagem="Ainda não há agendamentos registrados ou horários expirados no sistema." />
+            ) : <EmptyState icone="bi-clipboard-x" titulo="Histórico Vazio" mensagem="Nenhum registro encontrado para o período selecionado. Tente ajustar as datas." />
           )}
         </div>
       )}
@@ -563,7 +592,7 @@ const AdminScreen: React.FC<Omit<AppContextType, 'pagina'>> = ({ setPagina, setU
         aoFechar={() => setHistoricoSelecionado(null)}
         item={historicoSelecionado}
       />
-    </div>
+    </main>
   );
 };
 

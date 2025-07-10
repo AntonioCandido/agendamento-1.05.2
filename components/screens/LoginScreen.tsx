@@ -40,7 +40,7 @@ const LoginScreen: React.FC<Omit<AppContextType, 'pagina' | 'usuario'>> = ({ set
   };
 
   return (
-    <div className="flex flex-col items-center justify-center flex-grow p-4 bg-gray-50">
+    <main className="flex flex-col items-center justify-center flex-grow p-4 bg-gray-50">
       <div className="w-full max-w-md bg-white rounded-xl shadow-2xl p-6 sm:p-8 space-y-6">
         <img 
           src="https://cdn.portal.estacio.br/logotipo_marca_estacio_preto_HOME_d4bc9da518.svg" 
@@ -94,7 +94,7 @@ const LoginScreen: React.FC<Omit<AppContextType, 'pagina' | 'usuario'>> = ({ set
           </div>
         </form>
       </div>
-    </div>
+    </main>
   );
 };
 

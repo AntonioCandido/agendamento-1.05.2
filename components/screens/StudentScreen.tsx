@@ -277,7 +277,7 @@ const StudentScreen: React.FC<Omit<AppContextType, 'pagina' | 'usuario' | 'setUs
   const chavesDataOrdenadas = Object.keys(horariosAgrupados).sort();
 
   return (
-    <div className="container mx-auto p-4 sm:p-6">
+    <main className="container mx-auto p-4 sm:p-6">
        <img 
         src="https://cdn.portal.estacio.br/logotipo_marca_estacio_preto_HOME_d4bc9da518.svg" 
         alt="Logo Estácio" 
@@ -411,6 +411,7 @@ const StudentScreen: React.FC<Omit<AppContextType, 'pagina' | 'usuario' | 'setUs
 
             {estadoAgendamento.motivo === 'Outros' && (
                 <IconInput 
+                    aria-label="Descrição do motivo"
                     name="outro_motivo" 
                     value={outroMotivo} 
                     onChange={aoMudarInput} 
@@ -420,11 +421,11 @@ const StudentScreen: React.FC<Omit<AppContextType, 'pagina' | 'usuario' | 'setUs
                 />
             )}
 
-            <IconInput name="nome_candidato" value={estadoAgendamento.nome_candidato} onChange={aoMudarInput} placeholder="Seu Nome Completo" required icone="bi-person" />
-            <IconInput name="telefone_candidato" type="tel" value={estadoAgendamento.telefone_candidato} onChange={aoMudarInput} placeholder="Telefone de Contato" required icone="bi-telephone" />
+            <IconInput aria-label="Seu Nome Completo" name="nome_candidato" value={estadoAgendamento.nome_candidato} onChange={aoMudarInput} placeholder="Seu Nome Completo" required icone="bi-person" />
+            <IconInput aria-label="Telefone de Contato" name="telefone_candidato" type="tel" value={estadoAgendamento.telefone_candidato} onChange={aoMudarInput} placeholder="Telefone de Contato" required icone="bi-telephone" />
             
             <div className="space-y-2">
-                <IconInput name="email_candidato" type="email" value={estadoAgendamento.email_candidato} onChange={aoMudarInput} placeholder="Seu E-mail" required icone="bi-envelope" />
+                <IconInput aria-label="Seu E-mail" name="email_candidato" type="email" value={estadoAgendamento.email_candidato} onChange={aoMudarInput} placeholder="Seu E-mail" required icone="bi-envelope" />
                 <div className="flex items-center gap-2 ml-1">
                   <input
                     id="receber_notificacoes"
@@ -462,7 +463,7 @@ const StudentScreen: React.FC<Omit<AppContextType, 'pagina' | 'usuario' | 'setUs
           </form>
         )}
       </Modal>
-    </div>
+    </main>
   );
 };
 

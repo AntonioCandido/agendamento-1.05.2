@@ -159,7 +159,7 @@ CREATE TABLE public.agendamentos (
 
 
   return (
-    <div className="flex items-center justify-center flex-grow p-4 bg-gray-100">
+    <main className="flex items-center justify-center flex-grow p-4 bg-gray-100">
       <div className="w-full max-w-4xl bg-white rounded-lg shadow-xl p-4 sm:p-6 md:p-8">
         <img 
           src="https://cdn.portal.estacio.br/logotipo_marca_estacio_preto_HOME_d4bc9da518.svg" 
@@ -179,7 +179,7 @@ CREATE TABLE public.agendamentos (
           </button>
         </div>
       </div>
-    </div>
+    </main>
   );
 };
 

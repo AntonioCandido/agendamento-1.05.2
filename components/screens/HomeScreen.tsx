@@ -7,7 +7,7 @@ import { Pagina } from '../../constants';
 const HomeScreen: React.FC<Omit<AppContextType, 'pagina' | 'usuario' | 'setUsuario'>> = ({ setPagina }) => {
 
   return (
-    <div className="flex flex-col items-center justify-center flex-grow p-4 text-center">
+    <main className="flex flex-col items-center justify-center flex-grow p-4 text-center">
       <div className="w-full max-w-2xl bg-white rounded-lg shadow-xl p-6 sm:p-8">
         <div className="flex justify-between items-center mb-6">
             <img 
@@ -59,11 +59,11 @@ const HomeScreen: React.FC<Omit<AppContextType, 'pagina' | 'usuario' | 'setUsuar
             className="inline-flex items-center gap-2 text-estacio-blue font-semibold hover:underline"
           >
             <i className="bi bi-person-workspace"></i>
-            Sou Atendente - Versão:1.06
+            Sou Atendente - Versão:1.06.5
           </button>
         </div>
       </div>
-    </div>
+    </main>
   );
 };
 
