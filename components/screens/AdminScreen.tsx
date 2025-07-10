@@ -105,19 +105,20 @@ const AdminScreen: React.FC<Omit<AppContextType, 'pagina'>> = ({ setPagina, setU
   }, []);
 
   useEffect(() => {
-    if (aba === 'historico') {
-      buscarHistoricoGeral(datasHistorico.inicio, datasHistorico.fim);
-    } else if (aba === 'disponiveis') {
-      buscarHorariosDisponiveis();
-    }
-  }, [aba, datasHistorico, buscarHistoricoGeral, buscarHorariosDisponiveis]);
+    // Carrega os dados para os contadores na montagem do componente.
+    buscarAtendentes();
+    buscarHorariosDisponiveis();
+  }, [buscarAtendentes, buscarHorariosDisponiveis]);
+  
+  useEffect(() => {
+    // Carrega o histórico de acordo com as datas selecionadas.
+    // Isso também alimenta o contador do histórico.
+    buscarHistoricoGeral(datasHistorico.inicio, datasHistorico.fim);
+  }, [datasHistorico, buscarHistoricoGeral]);
   
   const handleToggleAtendentesList = () => {
-      const willBeOpen = !isAtendentesListOpen;
-      setIsAtendentesListOpen(willBeOpen);
-      if (willBeOpen && atendentes.length === 0 && !buscando) {
-          buscarAtendentes();
-      }
+      setIsAtendentesListOpen(prevState => !prevState);
+      // A busca de atendentes agora é feita na carga inicial do componente
   };
 
   const handleToggleAtendenteDetalhes = (id: string) => {
@@ -145,8 +146,8 @@ const AdminScreen: React.FC<Omit<AppContextType, 'pagina'>> = ({ setPagina, setU
     try {
       await adicionarAtendente(estadoFormulario);
       setEstadoFormulario({ usuario: '', senha: '', nome_real: '', matricula: '', nome_tag: '' });
-      await buscarAtendentes();
-      setIsAdicionarAtendenteOpen(false); // Recolhe o formulário após o sucesso
+      await buscarAtendentes(); // Atualiza a lista e o contador
+      setIsAdicionarAtendenteOpen(false);
       if (!isAtendentesListOpen) {
           setIsAtendentesListOpen(true);
       }
@@ -173,7 +174,7 @@ const AdminScreen: React.FC<Omit<AppContextType, 'pagina'>> = ({ setPagina, setU
 
       await excluirAtendente(atendenteParaExcluir.id);
       setAtendenteParaExcluir(null);
-      await buscarAtendentes();
+      await buscarAtendentes(); // Atualiza a lista e o contador
     } catch (err) {
       setErroLista('Falha ao excluir atendente. Ocorreu um erro inesperado.');
       console.error(err);
@@ -305,36 +306,57 @@ const AdminScreen: React.FC<Omit<AppContextType, 'pagina'>> = ({ setPagina, setU
       <div className="flex border border-gray-200 rounded-lg p-1 bg-gray-50 mb-8 max-w-2xl mx-auto">
         <button
           onClick={() => setAba('gerenciar')}
-          className={`w-1/3 py-2 px-4 text-sm font-bold rounded-md transition-all duration-300 flex items-center justify-center gap-2 ${
+          className={`w-1/3 py-2 px-4 text-sm font-bold rounded-md transition-all duration-300 flex flex-col items-center justify-center gap-1 ${
             aba === 'gerenciar'
               ? 'bg-estacio-blue text-white shadow'
               : 'text-gray-600 hover:bg-gray-200'
           }`}
         >
-          <i className="bi bi-people-fill"></i>
-          <span>Gerenciar Atendentes</span>
+          <div className="flex items-center justify-center gap-2">
+            <i className="bi bi-people-fill"></i>
+            <span>Atendentes</span>
+          </div>
+          {atendentes.length > 0 && (
+            <span className="bg-yellow-400 text-gray-800 text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full mt-1">
+              {atendentes.length}
+            </span>
+          )}
         </button>
         <button
           onClick={() => setAba('historico')}
-          className={`w-1/3 py-2 px-4 text-sm font-bold rounded-md transition-all duration-300 flex items-center justify-center gap-2 ${
+          className={`w-1/3 py-2 px-4 text-sm font-bold rounded-md transition-all duration-300 flex flex-col items-center justify-center gap-1 ${
             aba === 'historico'
               ? 'bg-estacio-blue text-white shadow'
               : 'text-gray-600 hover:bg-gray-200'
           }`}
         >
-          <i className="bi bi-clipboard-data"></i>
-          <span>Histórico Geral</span>
+          <div className="flex items-center justify-center gap-2">
+            <i className="bi bi-clipboard-data"></i>
+            <span>Histórico</span>
+          </div>
+          {historicoGeral.length > 0 && (
+            <span className="bg-yellow-400 text-gray-800 text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full mt-1">
+              {historicoGeral.length}
+            </span>
+          )}
         </button>
          <button
           onClick={() => setAba('disponiveis')}
-          className={`w-1/3 py-2 px-4 text-sm font-bold rounded-md transition-all duration-300 flex items-center justify-center gap-2 ${
+          className={`w-1/3 py-2 px-4 text-sm font-bold rounded-md transition-all duration-300 flex flex-col items-center justify-center gap-1 ${
             aba === 'disponiveis'
               ? 'bg-estacio-blue text-white shadow'
               : 'text-gray-600 hover:bg-gray-200'
           }`}
         >
-          <i className="bi bi-calendar-check"></i>
-          <span>Horários Disponíveis</span>
+          <div className="flex items-center justify-center gap-2">
+            <i className="bi bi-calendar-check"></i>
+            <span>Disponibilidade</span>
+          </div>
+          {horariosDisponiveis.length > 0 && (
+            <span className="bg-yellow-400 text-gray-800 text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full mt-1">
+              {horariosDisponiveis.length}
+            </span>
+          )}
         </button>
       </div>
 
